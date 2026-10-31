@@ -1,0 +1,7 @@
+# Notas locais (AGENTS.md, CLAUDE.md, tasks/) não vão para o GitHub.
+# README.md continua publicado porque é a descrição do repositório.
+*.md
+!README.md
+
+# Configuração local dos agentes
+.claude/
