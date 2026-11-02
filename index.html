@@ -46,10 +46,11 @@
         <button class="btn-ghost btn-sm" onclick="irHoje()">Hoje</button>
       </div>
     </div>
-    <!-- Saldo em conta = o que sobrou do mês anterior + resultado do mês -->
-    <div class="grid3 balance">
+    <!-- Saldo em conta = o que sobrou do mês anterior + resultado do mês − o que foi investido -->
+    <div class="grid4 balance">
       <div class="metric"><div class="metric-label" id="d-ant-label">Sobrou do mês anterior</div><div class="metric-value" id="d-ant">R$ 0</div><div class="metric-sub">dinheiro que já estava em conta</div><span class="op" aria-hidden="true">+</span></div>
-      <div class="metric"><div class="metric-label" id="d-sal-label">Resultado do mês</div><div class="metric-value" id="d-sal">R$ 0</div><div class="metric-sub">receitas − gastos deste mês</div><span class="op" aria-hidden="true">=</span></div>
+      <div class="metric"><div class="metric-label" id="d-sal-label">Resultado do mês</div><div class="metric-value" id="d-sal">R$ 0</div><div class="metric-sub">receitas − gastos deste mês</div><span class="op" aria-hidden="true">−</span></div>
+      <div class="metric"><div class="metric-label" id="d-inv-label">Investido no mês</div><div class="metric-value inv" id="d-inv">R$ 0</div><div class="metric-sub" id="d-inv-sub"></div><span class="op" aria-hidden="true">=</span></div>
       <div class="metric metric-strong"><div class="metric-label">Saldo em conta</div><div class="metric-value" id="d-conta">R$ 0</div><div class="metric-sub" id="d-conta-sub"></div></div>
     </div>
     <div class="grid3">
@@ -80,10 +81,11 @@
       <div class="card" style="margin-bottom:0">
         <div class="card-title">Orçamentos do mês</div>
         <div id="d-orc"></div>
+        <div id="d-metas"></div>
       </div>
     </div>
     <div class="card" style="margin-top:.85rem">
-      <div class="card-title">Receitas x gastos — últimos 6 meses</div>
+      <div class="card-title">Receitas, gastos e investimentos — últimos 6 meses</div>
       <div class="chart-box tall"><canvas id="d-evo"></canvas></div>
     </div>
     <div class="card">
@@ -103,9 +105,10 @@
         <button class="btn-ghost btn-sm" onclick="irHoje()">Hoje</button>
       </div>
     </div>
-    <div class="grid3">
+    <div class="grid4">
       <div class="metric"><div class="metric-label">Receitas</div><div class="metric-value pos" id="l-rec">R$ 0</div></div>
       <div class="metric"><div class="metric-label">Gastos</div><div class="metric-value neg" id="l-gas">R$ 0</div></div>
+      <div class="metric"><div class="metric-label">Investido</div><div class="metric-value inv" id="l-inv">R$ 0</div></div>
       <div class="metric"><div class="metric-label">Resultado do mês</div><div class="metric-value" id="l-sal">R$ 0</div></div>
     </div>
     <div class="card" id="lanc-form">
@@ -114,6 +117,7 @@
         <div class="seg" role="group" aria-label="Tipo de lançamento">
           <button class="seg-btn active" id="lf-tipo-gasto" onclick="setTipo('gasto')">Gasto</button>
           <button class="seg-btn" id="lf-tipo-receita" onclick="setTipo('receita')">Receita</button>
+          <button class="seg-btn" id="lf-tipo-investimento" onclick="setTipo('investimento')">Investimento</button>
         </div>
       </div>
       <div class="row">
@@ -134,7 +138,7 @@
     </div>
     <div class="card">
       <div class="row filters">
-        <div class="field" style="max-width:140px"><select id="l-f-tipo" onchange="renderLanc()" aria-label="Filtrar por tipo"><option value="todos">Todos</option><option value="gasto">Gastos</option><option value="receita">Receitas</option></select></div>
+        <div class="field" style="max-width:140px"><select id="l-f-tipo" onchange="renderLanc()" aria-label="Filtrar por tipo"><option value="todos">Todos</option><option value="gasto">Gastos</option><option value="receita">Receitas</option><option value="investimento">Investimentos</option></select></div>
         <div class="field" style="max-width:200px"><select id="l-f-cat" onchange="renderLanc()" aria-label="Filtrar por categoria"></select></div>
         <div class="field"><input type="text" id="l-f-busca" placeholder="Buscar descrição" oninput="renderLanc()" aria-label="Buscar"/></div>
       </div>
@@ -166,9 +170,10 @@
     </div>
     <div id="r-conteudo">
       <div class="hint" id="r-periodo" style="margin-bottom:6px"></div>
-      <div class="grid4">
+      <div class="grid5">
         <div class="metric"><div class="metric-label">Receitas</div><div class="metric-value pos" id="r-rec">R$ 0</div></div>
         <div class="metric"><div class="metric-label">Gastos</div><div class="metric-value neg" id="r-gas">R$ 0</div></div>
+        <div class="metric"><div class="metric-label">Investido</div><div class="metric-value inv" id="r-inv">R$ 0</div></div>
         <div class="metric"><div class="metric-label">Resultado do período</div><div class="metric-value" id="r-sal">R$ 0</div></div>
         <div class="metric"><div class="metric-label">Média de gastos/mês</div><div class="metric-value" id="r-med">R$ 0</div></div>
       </div>
@@ -176,6 +181,10 @@
         <div class="card-title">Gastos por categoria</div>
         <div class="chart-box" id="r-cat-box"><canvas id="r-cat"></canvas></div>
         <div id="r-cat-tabela"></div>
+      </div>
+      <div class="card" id="r-inv-card">
+        <div class="card-title">Investimentos por categoria</div>
+        <div id="r-inv-tabela"></div>
       </div>
       <div class="card">
         <div class="card-title">Mês a mês</div>
@@ -216,6 +225,16 @@
       </div>
       <div class="form-error" id="a-erro-r"></div>
       <div id="a-cats-r"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Categorias de investimento e meta mensal</div>
+      <div class="row" style="margin-bottom:.5rem">
+        <div class="field"><input type="text" id="a-cat-i" placeholder="Nova categoria" aria-label="Nova categoria de investimento" onkeydown="if(event.key==='Enter')addCat('investimento')"/></div>
+        <button class="btn" onclick="addCat('investimento')">+ Criar</button>
+      </div>
+      <div class="form-error" id="a-erro-i"></div>
+      <div id="a-cats-i"></div>
+      <div class="hint" style="margin-top:6px">Investir não conta como gasto, mas o dinheiro sai do Saldo em conta. Com uma meta, a Visão geral mostra quanto falta investir no mês.</div>
     </div>
     <div class="card">
       <div class="card-title">Backup dos dados</div>

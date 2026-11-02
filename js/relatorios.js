@@ -5,7 +5,7 @@ let relCat=null,relMes=null;
 
 // Seletor de mês com dois <select> (o input type="month" não funciona em todo navegador).
 function initMonthPicker(id,onchange='renderRel()'){
-  const anos=[S.receitas,S.gastos].flat().map(l=>+l.data.slice(0,4)).concat(S.recorrentes.map(r=>+r.inicio.slice(0,4)));
+  const anos=[S.receitas,S.gastos,S.investimentos].flat().map(l=>+l.data.slice(0,4)).concat(S.recorrentes.map(r=>+r.inicio.slice(0,4)));
   const ano=today.getFullYear(),min=Math.min(ano-5,...anos),max=ano+1;
   const anoOpts=[];for(let y=max;y>=min;y--)anoOpts.push(`<option value="${y}">${y}</option>`);
   $(id).innerHTML=`<select data-part="m" onchange="${onchange}" aria-label="Mês">${MESES_LONGO.map((n,i)=>`<option value="${pad(i+1)}">${n}</option>`).join('')}</select>
@@ -26,7 +26,7 @@ function periodoRel(){
 }
 function dadosRel(p){
   const list=lancamentos(p.de,p.ate),t=totais(list);
-  return{list,t,cats:porCategoria(list),recCats:porCategoria(list,'receita'),mensal:porMes(list,p.meses),media:t.gas/p.meses.length};
+  return{list,t,cats:porCategoria(list),recCats:porCategoria(list,'receita'),invCats:porCategoria(list,'investimento'),mensal:porMes(list,p.meses),media:t.gas/p.meses.length};
 }
 
 // ── GRÁFICOS (tela e PDF usam a mesma configuração) ─
@@ -40,7 +40,8 @@ function cfgMensal(mensal){
   return{type:'bar',
     data:{labels:mensal.map(x=>monthLabel(x.m)),datasets:[
       {label:'Receitas',data:mensal.map(x=>x.rec),backgroundColor:'#1D9E75',borderRadius:4},
-      {label:'Gastos',data:mensal.map(x=>x.gas),backgroundColor:'#E24B4A',borderRadius:4}]},
+      {label:'Gastos',data:mensal.map(x=>x.gas),backgroundColor:'#E24B4A',borderRadius:4},
+      ...(mensal.some(x=>x.inv>0)?[{label:'Investimentos',data:mensal.map(x=>x.inv),backgroundColor:'#378ADD',borderRadius:4}]:[])]},
     options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10}},tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+fmt(c.raw)}}},
       scales:{y:{beginAtZero:true,ticks:{callback:fmtEixo}}}}};
 }
@@ -66,20 +67,21 @@ function tabelaCategorias(cats,total,nMeses,tipo='gasto'){
       <td class="num">${(c.val/total*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td><td class="num">${fmt(c.val/nMeses)}</td></tr>`).join('')}
     </tbody><tfoot><tr><td>Total</td><td class="num">${fmt(total)}</td><td class="num">100%</td><td class="num">${fmt(total/nMeses)}</td></tr></tfoot></table>`;
 }
-// Resultado = receitas − gastos do mês; Em conta = dinheiro acumulado no fim do mês.
+// Resultado = receitas − gastos do mês; Em conta = dinheiro acumulado no fim do mês, já sem o que foi investido.
 function tabelaMensal(mensal){
-  const t=mensal.reduce((a,x)=>({rec:a.rec+x.rec,gas:a.gas+x.gas}),{rec:0,gas:0});
-  const linha=(rec,gas)=>{const s=rec-gas;return`<td class="num pos">${fmt(rec)}</td><td class="num neg">${fmt(gas)}</td><td class="num ${s>=0?'pos':'neg'}">${fmt(s)}</td>`};
+  const t=mensal.reduce((a,x)=>({rec:a.rec+x.rec,gas:a.gas+x.gas,inv:a.inv+x.inv}),{rec:0,gas:0,inv:0});
+  const temInv=t.inv>0;
+  const linha=(rec,gas,inv)=>{const s=rec-gas;return`<td class="num pos">${fmt(rec)}</td><td class="num neg">${fmt(gas)}</td><td class="num ${s>=0?'pos':'neg'}">${fmt(s)}</td>${temInv?`<td class="num inv">${fmt(inv)}</td>`:''}`};
   const conta=m=>{const c=saldoEmConta(m);return c===null?'<td class="num">—</td>':`<td class="num ${c>=0?'pos':'neg'}">${fmt(c)}</td>`};
   const ultimo=mensal[mensal.length-1].m;
-  return`<table class="tbl"><thead><tr><th>Mês</th><th class="num">Receitas</th><th class="num">Gastos</th><th class="num">Resultado</th><th class="num">Em conta (fim do mês)</th></tr></thead><tbody>
-    ${mensal.map(x=>`<tr><td>${monthLabel(x.m)}</td>${linha(x.rec,x.gas)}${conta(x.m)}</tr>`).join('')}
-    </tbody><tfoot><tr><td>Total</td>${linha(t.rec,t.gas)}${conta(ultimo)}</tr></tfoot></table>`;
+  return`<table class="tbl"><thead><tr><th>Mês</th><th class="num">Receitas</th><th class="num">Gastos</th><th class="num">Resultado</th>${temInv?'<th class="num">Investido</th>':''}<th class="num">Em conta (fim do mês)</th></tr></thead><tbody>
+    ${mensal.map(x=>`<tr><td>${monthLabel(x.m)}</td>${linha(x.rec,x.gas,x.inv)}${conta(x.m)}</tr>`).join('')}
+    </tbody><tfoot><tr><td>Total</td>${linha(t.rec,t.gas,t.inv)}${conta(ultimo)}</tr></tfoot></table>`;
 }
 function tabelaLancamentos(list){
   return`<table class="tbl"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th class="num">Valor</th></tr></thead><tbody>
     ${list.slice().reverse().map(l=>`<tr><td>${fmtDateFull(l.data)}</td><td>${esc(l.desc)}${l.fixo?' <span class="hint">(fixo)</span>':''}</td><td>${esc(l.cat)}</td>
-      <td class="num ${l.tipo==='receita'?'pos':'neg'}">${l.tipo==='receita'?'+':'−'} ${fmt(l.val)}</td></tr>`).join('')}</tbody></table>`;
+      <td class="num ${classeDo(l.tipo)}">${sinalDo(l.tipo)} ${fmt(l.val)}</td></tr>`).join('')}</tbody></table>`;
 }
 
 // ── TELA ───────────────────────────────────────────
@@ -90,7 +92,7 @@ function renderRel(){
   $('r-conteudo').style.display=p?'':'none';
   if(!p)return;
   const d=dadosRel(p),n=p.meses.length;
-  setText('r-rec',fmt(d.t.rec));setText('r-gas',fmt(d.t.gas));setSaldo('r-sal',d.t.saldo);setText('r-med',fmt(d.media));
+  setText('r-rec',fmt(d.t.rec));setText('r-gas',fmt(d.t.gas));setText('r-inv',fmt(d.t.inv));setSaldo('r-sal',d.t.saldo);setText('r-med',fmt(d.media));
   setText('r-periodo',(n===1?'1 mês':n+' meses')+' · '+d.list.length+' lançamento'+(d.list.length===1?'':'s'));
   $('r-cat-box').style.display=d.cats.length?'':'none';
   if(d.cats.length){
@@ -98,6 +100,8 @@ function renderRel(){
     relCat=new Chart($('r-cat'),cfgCategorias(d.cats));
     $('r-cat-tabela').innerHTML=tabelaCategorias(d.cats,d.t.gas,n);
   }else $('r-cat-tabela').innerHTML='<div class="empty">Nenhum gasto no período.</div>';
+  $('r-inv-card').style.display=d.invCats.length?'':'none';
+  $('r-inv-tabela').innerHTML=d.invCats.length?tabelaCategorias(d.invCats,d.t.inv,n,'investimento'):'';
   relMes=new Chart($('r-mes'),cfgMensal(d.mensal));
   $('r-mes-tabela').innerHTML=tabelaMensal(d.mensal);
 }
@@ -115,10 +119,11 @@ async function gerarPDF(){
   rep.innerHTML=`
     <h1>Relatório financeiro</h1>
     <div class="rep-meta">${periodo} · gerado em ${fmtDateFull(todayKey)} · Vida Hub</div>
-    <div class="rep-sum">${box('Receitas',fmt(d.t.rec),'pos')}${box('Gastos',fmt(d.t.gas),'neg')}${box('Resultado (receitas − gastos)',fmt(d.t.saldo),d.t.saldo>=0?'pos':'neg')}${box('Média de gastos/mês',fmt(d.media))}</div>
+    <div class="rep-sum">${box('Receitas',fmt(d.t.rec),'pos')}${box('Gastos',fmt(d.t.gas),'neg')}${d.t.inv?box('Investido',fmt(d.t.inv),'inv'):''}${box('Resultado (receitas − gastos)',fmt(d.t.saldo),d.t.saldo>=0?'pos':'neg')}${box('Média de gastos/mês',fmt(d.media))}</div>
     ${d.cats.length?`<div class="rep-sec"><h2>Gastos por categoria</h2><img src="${imgCat}" alt="Gráfico de gastos por categoria"></div>${tabelaCategorias(d.cats,d.t.gas,n)}`:''}
     <div class="rep-sec"><h2>Mês a mês</h2><img src="${imgMes}" alt="Gráfico de receitas e gastos por mês"></div>${tabelaMensal(d.mensal)}
     ${d.recCats.length?`<h2>Receitas por categoria</h2>${tabelaCategorias(d.recCats,d.t.rec,n,'receita')}`:''}
+    ${d.invCats.length?`<h2>Investimentos por categoria</h2>${tabelaCategorias(d.invCats,d.t.inv,n,'investimento')}`:''}
     ${$('r-lista').checked?`<h2>Lançamentos</h2>${tabelaLancamentos(d.list)}`:''}`;
   await Promise.all([...rep.querySelectorAll('img')].map(i=>i.decode().catch(()=>{})));
   // O título vira o nome sugerido do arquivo PDF.

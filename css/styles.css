@@ -5,14 +5,14 @@
   --text:#1a1a1a;--text2:#666;--text3:#999;
   --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);
   --radius:8px;--radius-lg:12px;
-  --pos:#0F6E56;--neg:#A32D2D;
+  --pos:#0F6E56;--neg:#A32D2D;--inv:#185FA5;
 }
 @media(prefers-color-scheme:dark){
   :root{
     --bg:#1a1a1a;--bg2:#242424;--bg3:#1f1f1f;
     --text:#f0f0f0;--text2:#aaa;--text3:#666;
     --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.18);
-    --pos:#5DCAA5;--neg:#F09595;
+    --pos:#5DCAA5;--neg:#F09595;--inv:#85B7EB;
   }
 }
 body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg3);color:var(--text);min-height:100vh}
@@ -42,6 +42,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg3);color:
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:.85rem}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:.85rem}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:.85rem}
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:.85rem}
 .metric{background:var(--bg3);border-radius:var(--radius);padding:.75rem .9rem;position:relative}
 .metric-label{font-size:11px;color:var(--text2);margin-bottom:3px}
 .metric-value{font-size:20px;font-weight:500;color:var(--text)}
@@ -50,7 +51,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg3);color:
 .bg{background:#E1F5EE;color:#0F6E56}.br{background:#FCEBEB;color:#A32D2D}.ba{background:#FAEEDA;color:#854F0B}.bb{background:#E6F1FB;color:#185FA5}
 .prog-bar{height:5px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:5px}
 .prog-fill{height:100%;border-radius:99px;background:var(--accent);transition:width .3s}
-.prog-fill.am{background:#EF9F27}.prog-fill.rd{background:#E24B4A}
+.prog-fill.am{background:#EF9F27}.prog-fill.rd{background:#E24B4A}.prog-fill.inv{background:#378ADD}
 
 /* FORMS */
 input[type=text],input[type=number],input[type=date],select,textarea{
@@ -72,7 +73,8 @@ input:focus,select:focus{border-color:var(--accent)}
 .empty{font-size:13px;color:var(--text3)}
 
 /* FINANÇAS */
-.pos{color:var(--pos)}.neg{color:var(--neg)}
+.pos{color:var(--pos)}.neg{color:var(--neg)}.inv{color:var(--inv)}
+#r-mes-tabela{overflow-x:auto}
 .balance .metric{overflow:visible}
 .metric-strong{background:var(--accent-light);box-shadow:inset 0 0 0 1px var(--accent)}
 .metric-strong .metric-label{color:var(--accent-dark);font-weight:500}
@@ -136,7 +138,7 @@ input:focus,select:focus{border-color:var(--accent)}
 #report h1{font-size:20px;font-weight:600}
 #report .rep-meta{font-size:11px;color:#666;margin:2px 0 14px}
 #report h2{font-size:12px;font-weight:600;margin:18px 0 6px;text-transform:uppercase;letter-spacing:.05em;color:#0F6E56}
-#report .rep-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+#report .rep-sum{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px}
 #report .rep-box{border:1px solid #ddd;border-radius:6px;padding:8px 10px}
 #report .rep-box .l{font-size:10px;color:#666}
 #report .rep-box .v{font-size:15px;font-weight:600;margin-top:2px}
@@ -147,7 +149,7 @@ input:focus,select:focus{border-color:var(--accent)}
 #report .tbl td{border-bottom:1px solid #e5e5e5;padding:4px}
 #report .tbl tfoot td{border-top:1.5px solid #333;font-weight:600}
 #report .tbl tr{break-inside:avoid}
-#report .pos{color:#0F6E56}#report .neg{color:#A32D2D}#report .hint{color:#888}
+#report .pos{color:#0F6E56}#report .neg{color:#A32D2D}#report .inv{color:#185FA5}#report .hint{color:#888}
 @media print{
   @page{size:A4;margin:14mm}
   body.printing{background:#fff}
@@ -167,7 +169,7 @@ input:focus,select:focus{border-color:var(--accent)}
   #sidebar.open{transform:translateX(0)}
   #main{margin-left:0;padding:1rem;padding-bottom:80px}
   .grid3{grid-template-columns:1fr 1fr}
-  .grid4{grid-template-columns:1fr 1fr}
+  .grid4,.grid5{grid-template-columns:1fr 1fr}
   .grid2{grid-template-columns:1fr}
   #mob-nav{display:flex}
   .page-title{font-size:17px}
@@ -177,5 +179,5 @@ input:focus,select:focus{border-color:var(--accent)}
   .op{display:none}
 }
 @media(max-width:400px){
-  .grid3,.grid4,.grid2{grid-template-columns:1fr}
+  .grid3,.grid4,.grid5,.grid2{grid-template-columns:1fr}
 }

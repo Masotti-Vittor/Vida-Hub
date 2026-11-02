@@ -1,19 +1,22 @@
 // ── LANÇAMENTOS ────────────────────────────────────
-// Avulsos ficam em S.receitas / S.gastos. Fixos ficam em S.recorrentes e
-// aparecem em todo mês entre inicio e fim (fim null = sem data para acabar).
+// Avulsos ficam em S.receitas / S.gastos / S.investimentos. Fixos ficam em
+// S.recorrentes e aparecem em todo mês entre inicio e fim (fim null = sem data para acabar).
+// Investir não é gastar: não conta em Gastos, mas o dinheiro sai da conta.
 let mesAtual=thisMonth;
 let tipoForm='gasto';
 let editando=null; // {tipo,id,fixo}
 
-const listaDo=tipo=>tipo==='receita'?S.receitas:S.gastos;
-const categoriasDo=tipo=>tipo==='receita'?S.categoriasReceita:S.categorias;
+const CHAVE_LISTA={receita:'receitas',gasto:'gastos',investimento:'investimentos'};
+const listaDo=tipo=>S[CHAVE_LISTA[tipo]];
+const categoriasDo=tipo=>tipo==='receita'?S.categoriasReceita:tipo==='investimento'?S.categoriasInvestimento:S.categorias;
+const sinalDo=tipo=>({receita:'+',gasto:'−',investimento:'↗'}[tipo]);
+const classeDo=tipo=>({receita:'pos',gasto:'neg',investimento:'inv'}[tipo]);
 const recorrenteAtivo=(r,m)=>r.inicio<=m&&(!r.fim||m<=r.fim);
 
 // Todos os lançamentos entre dois meses (inclusive), do mais novo para o mais antigo.
 function lancamentos(de,ate){
   const out=[];
-  S.receitas.forEach(l=>{const m=l.data.slice(0,7);if(m>=de&&m<=ate)out.push({...l,tipo:'receita'})});
-  S.gastos.forEach(l=>{const m=l.data.slice(0,7);if(m>=de&&m<=ate)out.push({...l,tipo:'gasto'})});
+  Object.keys(CHAVE_LISTA).forEach(tipo=>listaDo(tipo).forEach(l=>{const m=l.data.slice(0,7);if(m>=de&&m<=ate)out.push({...l,tipo})}));
   const meses=monthRange(de,ate);
   S.recorrentes.forEach(r=>meses.forEach(m=>{
     if(recorrenteAtivo(r,m))out.push({id:r.id,tipo:r.tipo,desc:r.desc,val:r.val,cat:r.cat,data:m+'-'+pad(Math.min(r.dia,daysInMonth(m))),fixo:true});
@@ -21,10 +24,10 @@ function lancamentos(de,ate){
   return out.sort((a,b)=>b.data.localeCompare(a.data));
 }
 function totais(list){
-  let rec=0,gas=0;
-  list.forEach(l=>{if(l.tipo==='receita')rec+=l.val;else gas+=l.val});
-  rec=Math.round(rec*100)/100;gas=Math.round(gas*100)/100;
-  return{rec,gas,saldo:Math.round((rec-gas)*100)/100};
+  let rec=0,gas=0,inv=0;
+  list.forEach(l=>{if(l.tipo==='receita')rec+=l.val;else if(l.tipo==='investimento')inv+=l.val;else gas+=l.val});
+  rec=Math.round(rec*100)/100;gas=Math.round(gas*100)/100;inv=Math.round(inv*100)/100;
+  return{rec,gas,inv,saldo:Math.round((rec-gas)*100)/100};
 }
 // [{cat,val}] do maior para o menor
 function porCategoria(list,tipo='gasto'){
@@ -32,22 +35,25 @@ function porCategoria(list,tipo='gasto'){
   list.forEach(l=>{if(l.tipo===tipo)m[l.cat]=(m[l.cat]||0)+l.val});
   return Object.entries(m).map(([cat,val])=>({cat,val:Math.round(val*100)/100})).sort((a,b)=>b.val-a.val);
 }
-// [{m,rec,gas,saldo}] um por mês, inclusive meses sem lançamento
+// [{m,rec,gas,inv,saldo}] um por mês, inclusive meses sem lançamento
 function porMes(list,meses){return meses.map(m=>({m,...totais(list.filter(l=>l.data.startsWith(m)))}))}
 // ── SALDO EM CONTA ─────────────────────────────────
 // Resultado do mês = receitas − gastos daquele mês (o que você ganhou/perdeu).
-// Saldo em conta = saldo inicial + resultados de todos os meses desde o saldo inicial.
-function mesInicial(){
-  if(S.saldoInicial.mes)return S.saldoInicial.mes;
-  const ms=[...S.receitas,...S.gastos].map(l=>l.data.slice(0,7)).concat(S.recorrentes.map(r=>r.inicio));
+// Saldo em conta = saldo inicial + resultados − investimentos de todos os meses desde o saldo inicial.
+function primeiroMes(){
+  const ms=[...S.receitas,...S.gastos,...S.investimentos].map(l=>l.data.slice(0,7)).concat(S.recorrentes.map(r=>r.inicio));
   return ms.length?ms.reduce((a,b)=>a<b?a:b):thisMonth;
 }
+function mesInicial(){return S.saldoInicial.mes||primeiroMes()}
 // Dinheiro em conta no fim do mês m (null antes do saldo inicial).
 function saldoEmConta(m){
   const ini=mesInicial();
   if(m<ini)return null;
-  return Math.round((S.saldoInicial.valor+totais(lancamentos(ini,m)).saldo)*100)/100;
+  const t=totais(lancamentos(ini,m));
+  return Math.round((S.saldoInicial.valor+t.saldo-t.inv)*100)/100;
 }
+// Tudo o que já foi investido até o fim do mês m. Não depende do saldo inicial.
+const investidoAte=m=>totais(lancamentos(primeiroMes(),m)).inv;
 // O que sobrou do mês anterior e entrou no mês m.
 function sobraDoMes(m){
   const ini=mesInicial();
@@ -56,7 +62,8 @@ function sobraDoMes(m){
 }
 function corCategoria(cat,tipo='gasto'){
   const i=categoriasDo(tipo).indexOf(cat);
-  return i<0?'#999':corDe(i);
+  if(i<0)return'#999';
+  return corDe(tipo==='investimento'?i+3:i); // a primeira de investimento fica azul, como os valores
 }
 
 // ── MÊS ────────────────────────────────────────────
@@ -74,6 +81,8 @@ function setTipo(t){
   tipoForm=t;
   $('lf-tipo-gasto').classList.toggle('active',t==='gasto');
   $('lf-tipo-receita').classList.toggle('active',t==='receita');
+  $('lf-tipo-investimento').classList.toggle('active',t==='investimento');
+  $('lf-desc').placeholder={gasto:'Ex: Mercado do mês',receita:'Ex: Salário',investimento:'Ex: Tesouro Selic'}[t];
   fillCatSelect($('lf-cat'),categoriasDo(t));
 }
 function resetForm(){
@@ -140,7 +149,7 @@ function excluirLanc(tipo,id,fixo,data){
     if(fim<r.inicio)S.recorrentes=S.recorrentes.filter(x=>x!==r);else r.fim=fim;
   }else{
     if(!confirm('Excluir este lançamento?'))return;
-    if(tipo==='receita')S.receitas=S.receitas.filter(l=>l.id!==id);else S.gastos=S.gastos.filter(l=>l.id!==id);
+    S[CHAVE_LISTA[tipo]]=listaDo(tipo).filter(l=>l.id!==id);
   }
   if(editando&&editando.id===id)resetForm();
   save();render();
@@ -154,7 +163,7 @@ function txRow(acoes){
       <div class="tx-desc">${esc(l.desc)}${l.fixo?'<span class="tag"><i class="ti ti-repeat"></i> fixo</span>':''}</div>
       <div class="tx-cat"><span class="dot" style="background:${corCategoria(l.cat,l.tipo)}"></span>${esc(l.cat)}</div>
     </div>
-    <span class="tx-val ${l.tipo==='receita'?'pos':'neg'}">${l.tipo==='receita'?'+':'−'} ${fmt(l.val)}</span>
+    <span class="tx-val ${classeDo(l.tipo)}">${sinalDo(l.tipo)} ${fmt(l.val)}</span>
     ${acoes?`<span class="tx-actions">
       <button class="btn-icon" title="Editar" onclick="editarLanc('${l.tipo}','${l.id}',${!!l.fixo})"><i class="ti ti-pencil"></i></button>
       <button class="btn-icon" title="Excluir" onclick="excluirLanc('${l.tipo}','${l.id}',${!!l.fixo},'${l.data}')"><i class="ti ti-trash"></i></button>
@@ -163,10 +172,10 @@ function txRow(acoes){
 }
 function renderLanc(){
   const list=lancamentos(mesAtual,mesAtual),t=totais(list);
-  setText('l-rec',fmt(t.rec));setText('l-gas',fmt(t.gas));setSaldo('l-sal',t.saldo);
+  setText('l-rec',fmt(t.rec));setText('l-gas',fmt(t.gas));setText('l-inv',fmt(t.inv));setSaldo('l-sal',t.saldo);
   fillCatSelect($('lf-cat'),categoriasDo(tipoForm));
   const selCat=$('l-f-cat');
-  fillCatSelect(selCat,[...new Set([...S.categorias,...S.categoriasReceita])],'Todas as categorias');
+  fillCatSelect(selCat,[...new Set([...S.categorias,...S.categoriasReceita,...S.categoriasInvestimento])],'Todas as categorias');
   const ft=$('l-f-tipo').value,fc=selCat.value,fb=$('l-f-busca').value.trim().toLowerCase();
   const vis=list.filter(l=>(ft==='todos'||l.tipo===ft)&&(!fc||l.cat===fc)&&(!fb||l.desc.toLowerCase().includes(fb)));
   const el=$('lanc-list');
@@ -174,5 +183,5 @@ function renderLanc(){
   if(!vis.length){el.innerHTML='<div class="empty">Nenhum lançamento com esses filtros.</div>';return}
   const tv=totais(vis);
   el.innerHTML=vis.map(txRow(true)).join('')+
-    `<div class="tx-foot">${vis.length} lançamento${vis.length>1?'s':''} · receitas ${fmt(tv.rec)} · gastos ${fmt(tv.gas)}</div>`;
+    `<div class="tx-foot">${vis.length} lançamento${vis.length>1?'s':''} · receitas ${fmt(tv.rec)} · gastos ${fmt(tv.gas)}${tv.inv?' · investido '+fmt(tv.inv):''}</div>`;
 }

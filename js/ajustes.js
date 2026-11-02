@@ -10,6 +10,12 @@ function renderAjustes(){
       <span class="dot" style="background:${corDe(i)}"></span><span class="name">${esc(c)}</span>
       <button class="btn-icon" title="Excluir" onclick="delCat('receita',${i})"><i class="ti ti-trash"></i></button>
     </div>`).join(''):'<div class="empty">Nenhuma categoria.</div>';
+  $('a-cats-i').innerHTML=S.categoriasInvestimento.length?S.categoriasInvestimento.map((c,i)=>`<div class="cat-row">
+      <span class="dot" style="background:${corCategoria(c,'investimento')}"></span><span class="name">${esc(c)}</span>
+      <input type="number" min="0" step="0.01" inputmode="decimal" placeholder="Meta/mês" aria-label="Meta mensal de ${esc(c)}"
+        value="${S.metasInvestimento[c]||''}" onchange="setMeta(${i},this.value)"/>
+      <button class="btn-icon" title="Excluir" onclick="delCat('investimento',${i})"><i class="ti ti-trash"></i></button>
+    </div>`).join(''):'<div class="empty">Nenhuma categoria.</div>';
   setMes('a-ini-mes',mesInicial());
   $('a-ini-val').value=S.saldoInicial.mes||S.saldoInicial.valor?S.saldoInicial.valor:'';
   setText('a-ini-info',S.saldoInicial.mes?'':'Ainda não definido: o saldo em conta começa em R$ 0 no primeiro mês com lançamentos.');
@@ -21,7 +27,8 @@ function salvarSaldoInicial(){
   setText('a-ini-info','Salvo.');
 }
 function addCat(tipo){
-  const inp=$(tipo==='receita'?'a-cat-r':'a-cat-g'),erro=tipo==='receita'?'a-erro-r':'a-erro-g';
+  const sufixo={gasto:'g',receita:'r',investimento:'i'}[tipo];
+  const inp=$('a-cat-'+sufixo),erro='a-erro-'+sufixo;
   const c=inp.value.trim(),cats=categoriasDo(tipo);
   setText(erro,'');
   if(!c)return;
@@ -36,11 +43,17 @@ function delCat(tipo,i){
   if(!confirm(`Excluir a categoria "${c}"?`))return;
   cats.splice(i,1);
   if(tipo==='gasto')delete S.orcamentos[c];
+  if(tipo==='investimento')delete S.metasInvestimento[c];
   save();renderAjustes();
 }
 function setOrcamento(i,v){
   const c=S.categorias[i],n=parseValor(v);
   if(n>0)S.orcamentos[c]=n;else delete S.orcamentos[c];
+  save();
+}
+function setMeta(i,v){
+  const c=S.categoriasInvestimento[i],n=parseValor(v);
+  if(n>0)S.metasInvestimento[c]=n;else delete S.metasInvestimento[c];
   save();
 }
 
@@ -68,13 +81,13 @@ function importarBackup(input){
   r.readAsText(f);
 }
 function exportarCSV(){
-  const meses=[...S.receitas,...S.gastos].map(l=>l.data.slice(0,7)).concat(S.recorrentes.map(r=>r.inicio));
+  const meses=[...S.receitas,...S.gastos,...S.investimentos].map(l=>l.data.slice(0,7)).concat(S.recorrentes.map(r=>r.inicio));
   if(!meses.length){alert('Nenhum lançamento para exportar.');return}
   const de=meses.reduce((a,b)=>a<b?a:b),ate=meses.concat(thisMonth).reduce((a,b)=>a>b?a:b);
   // Evita que o Excel interprete um texto começando com = + - @ como fórmula.
   const txt=s=>/^[=+\-@]/.test(s)?"'"+s:s;
   const linhas=[['Data','Tipo','Descrição','Categoria','Valor','Fixo']].concat(lancamentos(de,ate).reverse().map(l=>[
-    fmtDateFull(l.data),l.tipo==='receita'?'Receita':'Gasto',txt(l.desc),txt(l.cat),
+    fmtDateFull(l.data),{receita:'Receita',gasto:'Gasto',investimento:'Investimento'}[l.tipo],txt(l.desc),txt(l.cat),
     (l.tipo==='receita'?l.val:-l.val).toFixed(2).replace('.',','),l.fixo?'sim':'']));
   // BOM + ";" para o Excel em português abrir com acentos e colunas certas.
   const csv='﻿'+linhas.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n');

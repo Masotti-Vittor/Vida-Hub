@@ -23,6 +23,10 @@ function renderDash(){
   setText('d-gas',fmt(t.gas));setText('d-gas-sub',comparar(t.gas,ant.gas));
   setSaldo('d-sal',t.saldo);
   setText('d-sal-label','Resultado de '+MESES_LONGO[+mesAtual.slice(5)-1]);
+  setText('d-inv-label','Investido em '+MESES_LONGO[+mesAtual.slice(5)-1]);
+  setText('d-inv',fmt(t.inv));
+  const taxa=t.rec&&t.inv?Math.round(t.inv/t.rec*100)+'% das receitas · ':'';
+  setText('d-inv-sub',taxa+fmt(investidoAte(mesAtual))+' no total');
   // Separa o que sobrou do mês passado do que foi ganho neste mês.
   const sobra=sobraDoMes(mesAtual);
   setText('d-ant-label',mesAtual===mesInicial()?'Saldo inicial':'Sobrou de '+MESES_LONGO[+mAnt.slice(5)-1]);
@@ -31,12 +35,13 @@ function renderDash(){
     $('d-ant').classList.remove('pos','neg');$('d-conta').classList.remove('pos','neg');
     setText('d-conta-sub','antes do saldo inicial (veja Ajustes)');
   }else{
-    setSaldo('d-ant',sobra);setSaldo('d-conta',sobra+t.saldo);
+    setSaldo('d-ant',sobra);setSaldo('d-conta',saldoEmConta(mesAtual));
     setText('d-conta-sub',mesAtual===thisMonth?'previsto para o fim do mês':'no fim de '+monthLabel(mesAtual,true));
   }
   setText('d-pat',fmt(S.patrimonio||0));
   renderDashPie(list,t.gas);
   renderOrcamentos(list);
+  renderMetas(list);
   renderDashEvo();
   $('d-ultimos').innerHTML=list.length?list.slice(0,5).map(txRow(false)).join(''):`<div class="empty">Nenhum lançamento em ${monthLabel(mesAtual,true)}.</div>`;
 }
@@ -62,6 +67,18 @@ function renderOrcamentos(list){
       <div class="orc-sub ${p>100?'neg':''}">${p>100?'Passou '+fmt(g-o):'Resta '+fmt(o-g)}</div>
     </div>`}).join('')
     :`<div class="empty">Nenhum orçamento definido. <a href="#" onclick="go('aju');return false">Definir em Ajustes</a></div>`;
+}
+// Ao contrário do orçamento, aqui chegar a 100% é o objetivo.
+function renderMetas(list){
+  const feito={};porCategoria(list,'investimento').forEach(c=>feito[c.cat]=c.val);
+  const cats=S.categoriasInvestimento.filter(c=>S.metasInvestimento[c]>0);
+  $('d-metas').innerHTML=cats.length?`<hr class="divider"><div class="card-title">Metas de investimento</div>`+cats.map(c=>{
+    const v=feito[c]||0,o=S.metasInvestimento[c];
+    return`<div class="orc">
+      <div class="orc-head"><span><span class="dot" style="background:${corCategoria(c,'investimento')}"></span> ${esc(c)}</span><span>${fmt(v)} <span class="hint">de ${fmt(o)}</span></span></div>
+      <div class="prog-bar"><div class="prog-fill inv" style="width:${Math.min(v/o*100,100)}%"></div></div>
+      <div class="orc-sub">${v>=o?'Meta atingida':'Faltam '+fmt(o-v)}</div>
+    </div>`}).join(''):'';
 }
 function renderDashEvo(){
   const meses=monthRange(addMonths(mesAtual,-5),mesAtual);
